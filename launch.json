@@ -1,0 +1,38 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Quantized Train",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--dataset_name=huggan/flowers-102-categories",
+                "--eval_batch_size=5",
+                "--train_batch_size=4",
+                "--num_epochs=100",
+                "--learning_rate=0.0",
+                "--pretrained_model_path",
+                "trained_models/ddpm-flowers.pth",
+                "--quantize"
+
+            ]
+        },
+        {
+            "name": "Evaluate",
+            "type": "python",
+            "request": "launch",
+            "program": "evaluate.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--pretrained_model_path","trained_models/ddpm-flowers.pth","--dataset_name=huggan/flowers-102-categories","--dataset_size=100","--eval_batch_size=16"
+            ]
+        }
+    ]
+}
