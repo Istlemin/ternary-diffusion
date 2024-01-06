@@ -134,7 +134,8 @@ dmypy.json
 
 .vscode
 test_samples
-trained_models
+#trained_models
 training_logs
 
 data/
+
