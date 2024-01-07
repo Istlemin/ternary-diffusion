@@ -165,7 +165,7 @@ def quantize_unet(model, quant_config=None):
     model = copy.deepcopy(model)
     if quant_config is None:
         quant_config = {
-            "weight_quanter": MinMaxQuantizer(bits=4,clip_val=2.5),
+            "weight_quanter": TwnQuantizer(clip_val=2.5),
             "act_quanter": NoopQuantizer(),
         }
     

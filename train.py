@@ -42,7 +42,7 @@ def main(args):
                                     beta_schedule="cosine")
 
     if args.pretrained_model_path:
-        pretrained = torch.load(args.pretrained_model_path)["model_state"]
+        pretrained = torch.load(args.pretrained_model_path, map_location="cpu")["model_state"]
         model.load_state_dict(pretrained, strict=False)
 
     if args.quantize:
@@ -50,10 +50,21 @@ def main(args):
         model, quantized_param_names = quantize_unet(teacher)
         
         #model.load_state_dict(torch.load("trained_models/ddpm-flowers-twn.pth")["model_state"])
+    
+    distillation_transforms = torch.nn.ModuleDict({
+        3: torch.nn.Linear(3,3),
+        4: torch.nn.Linear(4,4),
+        8: torch.nn.Linear(8,8),
+        16: torch.nn.Linear(16,16),
+        32: torch.nn.Linear(32,32),
+        64: torch.nn.Linear(64,64),
+    })
+    
     optimizer = torch.optim.SGD(
         [
-            {'params':[param for name,param in model.named_parameters() if name in quantized_param_names], "lr":0},
-            {'params':[param for name,param in model.named_parameters() if name not in quantized_param_names], "lr":1e-5},
+            {'params':[param for name,param in model.named_parameters() if name in quantized_param_names], "lr":1e-4},
+            {'params':[param for name,param in model.named_parameters() if name not in quantized_param_names], "lr":1e-4},
+            {'params':distillation_transforms.parameters(), "lr":1e-4},
         ],
         lr=args.learning_rate,
         # betas=(args.adam_beta1, args.adam_beta2),
@@ -100,16 +111,20 @@ def main(args):
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cpu"
     model = model.to(device)
     teacher = teacher.to(device)
-    summary(model, [(1, 3, args.resolution, args.resolution), (1, )], verbose=1)
+    #summary(model, [(1, 3, args.resolution, args.resolution), (1, )], verbose=1)
 
     loss_fn = F.l1_loss if args.use_l1_loss else F.mse_loss
-    scaler = torch.cuda.amp.GradScaler()
+    #scaler = torch.cuda.amp.GradScaler()
     global_step = 0
     losses = []
     avg_err = []
     avg_act_err = defaultdict(list)
+    
+    
+    
     for epoch in range(args.num_epochs):
         model.train()
         progress_bar = tqdm(total=len(train_dataloader))
@@ -139,8 +154,13 @@ def main(args):
                 for i,(a,b) in enumerate(zip(pred["acts"],pred_teacher["acts"])):
                     #print(f"{((a-b)**2).sum()/(b**2).sum()*100:.3f}",a.shape)
                     avg_act_err[f"{i}-{a.shape}"].append((((a-b)**2).sum()/(b**2).sum()*100).item())
-                    mul = 0
-                    loss += F.l1_loss(a, b)*mul
+                    features = a.shape[1]
+                    a = a.transpose(1,3).reshape((-1,features))
+                    b = b.transpose(1,3).reshape((-1,features))
+                    a = distillation_transforms[features](a)
+                    
+                    mul = 0.2
+                    loss += F.mse_loss(a, b)*mul
                 loss += F.l1_loss(noise_pred, pred_teacher["sample"])*1
             else:
                 loss = F.l1_loss(noise_pred, noise)
