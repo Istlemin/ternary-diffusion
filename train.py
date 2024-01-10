@@ -42,7 +42,7 @@ def main(args):
                                     beta_schedule="cosine")
 
     if args.pretrained_model_path:
-        pretrained = torch.load(args.pretrained_model_path, map_location="cpu")["model_state"]
+        pretrained = torch.load(args.pretrained_model_path)["model_state"]
         model.load_state_dict(pretrained, strict=False)
 
     if args.quantize:
@@ -52,12 +52,12 @@ def main(args):
         #model.load_state_dict(torch.load("trained_models/ddpm-flowers-twn.pth")["model_state"])
     
     distillation_transforms = torch.nn.ModuleDict({
-        3: torch.nn.Linear(3,3),
-        4: torch.nn.Linear(4,4),
-        8: torch.nn.Linear(8,8),
-        16: torch.nn.Linear(16,16),
-        32: torch.nn.Linear(32,32),
-        64: torch.nn.Linear(64,64),
+        "3": torch.nn.Linear(3,3),
+        "4": torch.nn.Linear(4,4),
+        "8": torch.nn.Linear(8,8),
+        "16": torch.nn.Linear(16,16),
+        "32": torch.nn.Linear(32,32),
+        "64": torch.nn.Linear(64,64),
     })
     
     optimizer = torch.optim.SGD(
@@ -111,9 +111,10 @@ def main(args):
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = "cpu"
+    
     model = model.to(device)
     teacher = teacher.to(device)
+    distillation_transforms = distillation_transforms.to(device)
     #summary(model, [(1, 3, args.resolution, args.resolution), (1, )], verbose=1)
 
     loss_fn = F.l1_loss if args.use_l1_loss else F.mse_loss
@@ -157,9 +158,9 @@ def main(args):
                     features = a.shape[1]
                     a = a.transpose(1,3).reshape((-1,features))
                     b = b.transpose(1,3).reshape((-1,features))
-                    a = distillation_transforms[features](a)
+                    a = distillation_transforms[str(features)](a)
                     
-                    mul = 0.2
+                    mul = 1
                     loss += F.mse_loss(a, b)*mul
                 loss += F.l1_loss(noise_pred, pred_teacher["sample"])*1
             else:
