@@ -234,7 +234,7 @@ class UNet(nn.Module):
         acts += new_acts
         acts.append(x)
 
-        acts = skips[:]
+        acts = []
         
         for block1, block2, attn, upsample in self.up_blocks:
             x = torch.cat((x, skips.pop()), dim=1)
@@ -248,10 +248,10 @@ class UNet(nn.Module):
             # acts += new_acts
             # acts.append(x)
             x = attn(x)
-            # acts.append(x)
+            acts.append(x)
 
             x = upsample(x)
-            # acts.append(x)
+            acts.append(x)
 
         x, new_acts = self.out_block(torch.cat((x, r), dim=1), t_emb)
         # acts += new_acts

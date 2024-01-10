@@ -58,12 +58,13 @@ def main(args):
         "16": torch.nn.Linear(16,16),
         "32": torch.nn.Linear(32,32),
         "64": torch.nn.Linear(64,64),
+        "128": torch.nn.Linear(128,128),
     })
     
     optimizer = torch.optim.SGD(
         [
-            {'params':[param for name,param in model.named_parameters() if name in quantized_param_names], "lr":1e-4},
-            {'params':[param for name,param in model.named_parameters() if name not in quantized_param_names], "lr":1e-4},
+            {'params':[param for name,param in model.named_parameters() if name in quantized_param_names], "lr":5e-3},
+            {'params':[param for name,param in model.named_parameters() if name not in quantized_param_names], "lr":1e-3},
             {'params':distillation_transforms.parameters(), "lr":1e-4},
         ],
         lr=args.learning_rate,
@@ -154,14 +155,14 @@ def main(args):
                 loss = 0
                 for i,(a,b) in enumerate(zip(pred["acts"],pred_teacher["acts"])):
                     #print(f"{((a-b)**2).sum()/(b**2).sum()*100:.3f}",a.shape)
-                    avg_act_err[f"{i}-{a.shape}"].append((((a-b)**2).sum()/(b**2).sum()*100).item())
+                    avg_act_err[f"{i}-{a.shape[1:]}"].append((((a-b)**2).sum()/(b**2).sum()*100).item())
                     features = a.shape[1]
                     a = a.transpose(1,3).reshape((-1,features))
                     b = b.transpose(1,3).reshape((-1,features))
-                    a = distillation_transforms[str(features)](a)
+                    #a = distillation_transforms[str(features)](a)
                     
-                    mul = 1
-                    loss += F.mse_loss(a, b)*mul
+                    mul = 0.5
+                    loss += F.l1_loss(a, b)*mul
                 loss += F.l1_loss(noise_pred, pred_teacher["sample"])*1
             else:
                 loss = F.l1_loss(noise_pred, noise)
@@ -217,13 +218,13 @@ def main(args):
                             "grid.png",
                             nrow=args.eval_batch_size // 4)
                 
-                model_state_dict = model.state_dict()
-                for parameter_name, teacher_param in teacher.state_dict().items():
-                    if parameter_name not in quantized_param_names:
-                        print(f"{F.mse_loss(teacher_param,model_state_dict[parameter_name])*1000:.5f}",parameter_name)
-                for parameter_name, teacher_param in teacher.state_dict().items():
-                    if parameter_name in quantized_param_names:
-                        print(f"{F.mse_loss(teacher_param,model_state_dict[parameter_name])*1000:.5f}",parameter_name,math.prod(model_state_dict[parameter_name].shape),model_state_dict[parameter_name].shape)
+                # model_state_dict = model.state_dict()
+                # for parameter_name, teacher_param in teacher.state_dict().items():
+                #     if parameter_name not in quantized_param_names:
+                #         print(f"{F.mse_loss(teacher_param,model_state_dict[parameter_name])*1000:.5f}",parameter_name)
+                # for parameter_name, teacher_param in teacher.state_dict().items():
+                #     if parameter_name in quantized_param_names:
+                #         print(f"{F.mse_loss(teacher_param,model_state_dict[parameter_name])*1000:.5f}",parameter_name,math.prod(model_state_dict[parameter_name].shape),model_state_dict[parameter_name].shape)
                 for name,errs in avg_act_err.items():
                     print(name,f"{numpy.mean(errs):.3f}")
             global_step += 1
