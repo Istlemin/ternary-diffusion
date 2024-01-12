@@ -25,7 +25,7 @@ from scheduler import DDIMScheduler
 from model import UNet
 from utils import save_images, normalize_to_neg_one_to_one, plot_losses
 from dataset import CustomDataset
-from quantization import quantize_unet, QuantizedConv2d, QuantizedLinear
+from quantization import calc_model_size, quantize_unet, QuantizedConv2d, QuantizedLinear
 import pandas as pd
 import math
 
@@ -47,7 +47,12 @@ def main(args):
 
     if args.quantize:
         teacher = model
-        model, quantized_param_names = quantize_unet(teacher)
+        model, quantized_param_names = quantize_unet(teacher,args)
+        
+        print("Normal model size:")
+        calc_model_size(teacher,[])
+        print("Quant model size:")
+        calc_model_size(model,quantized_param_names)
         
         #model.load_state_dict(torch.load("trained_models/ddpm-flowers-twn.pth")["model_state"])
     
@@ -63,9 +68,9 @@ def main(args):
     
     optimizer = torch.optim.SGD(
         [
-            {'params':[param for name,param in model.named_parameters() if name in quantized_param_names], "lr":5e-3},
-            {'params':[param for name,param in model.named_parameters() if name not in quantized_param_names], "lr":1e-3},
-            {'params':distillation_transforms.parameters(), "lr":1e-4},
+            {'params':[param for name,param in model.named_parameters() if name in quantized_param_names], "lr":args.quant_lr},
+            {'params':[param for name,param in model.named_parameters() if name not in quantized_param_names], "lr":args.learning_rate},
+            {'params':distillation_transforms.parameters(), "lr":args.learning_rate},
         ],
         lr=args.learning_rate,
         # betas=(args.adam_beta1, args.adam_beta2),
@@ -153,16 +158,20 @@ def main(args):
                 
                 avg_err.append(F.l1_loss(noise_pred, pred_teacher["sample"]).detach().cpu().item())
                 loss = 0
-                for i,(a,b) in enumerate(zip(pred["acts"],pred_teacher["acts"])):
-                    #print(f"{((a-b)**2).sum()/(b**2).sum()*100:.3f}",a.shape)
-                    avg_act_err[f"{i}-{a.shape[1:]}"].append((((a-b)**2).sum()/(b**2).sum()*100).item())
-                    features = a.shape[1]
-                    a = a.transpose(1,3).reshape((-1,features))
-                    b = b.transpose(1,3).reshape((-1,features))
-                    #a = distillation_transforms[str(features)](a)
-                    
-                    mul = 0.5
-                    loss += F.l1_loss(a, b)*mul
+                
+                if args.hidden_dist is not None:
+                    for i,(a,b) in enumerate(zip(pred["acts"],pred_teacher["acts"])):
+                        #print(f"{((a-b)**2).sum()/(b**2).sum()*100:.3f}",a.shape)
+                        avg_act_err[f"{i}-{a.shape[1:]}"].append((((a-b)**2).sum()/(b**2).sum()*100).item())
+                        features = a.shape[1]
+                        a = a.transpose(1,3).reshape((-1,features))
+                        b = b.transpose(1,3).reshape((-1,features))
+                        
+                        if args.use_dist_transform:
+                            a = distillation_transforms[str(features)](a)
+                        
+                        mul = 0.0
+                        loss += F.l1_loss(a, b)*mul
                 loss += F.l1_loss(noise_pred, pred_teacher["sample"])*1
             else:
                 loss = F.l1_loss(noise_pred, noise)
@@ -259,7 +268,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Simple example of a training script.")
-    parser.add_argument("--dataset_name", type=str, default=None)
+    parser.add_argument("--dataset_name", type=str, default="huggan/flowers-102-categories")
     parser.add_argument("--dataset_config_name", type=str, default=None)
     parser.add_argument("--train_data_path",
                         type=str,
@@ -272,12 +281,13 @@ if __name__ == "__main__":
     parser.add_argument("--loss_logs_dir", type=str, default="training_logs")
     parser.add_argument("--cache_dir", type=str, default=None)
     parser.add_argument("--resolution", type=int, default=64)
-    parser.add_argument("--train_batch_size", type=int, default=16)
-    parser.add_argument("--eval_batch_size", type=int, default=32)
-    parser.add_argument("--num_epochs", type=int, default=100)
+    parser.add_argument("--train_batch_size", type=int, default=4)
+    parser.add_argument("--eval_batch_size", type=int, default=5)
+    parser.add_argument("--num_epochs", type=int, default=3)
     parser.add_argument("--save_model_epochs", type=int, default=10)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
+    parser.add_argument("--quant_lr", type=float, default=1e-4)
     parser.add_argument("--lr_scheduler", type=str, default="cosine")
     parser.add_argument("--lr_warmup_steps", type=int, default=0)
     parser.add_argument("--adam_beta1", type=float, default=0.95)
@@ -287,10 +297,15 @@ if __name__ == "__main__":
     parser.add_argument("--use_clip_grad", type=bool, default=False)
     parser.add_argument("--use_l1_loss", type=bool, default=False)
     parser.add_argument("--quantize",action='store_true')
+    parser.add_argument("--qinit",action='store_true')
+    parser.add_argument("--qres",action='store_true')
+    parser.add_argument("--hidden_dist",action='store_true')
+    parser.add_argument("--use_dist_transform",action='store_true')
+    parser.add_argument("--act_quant_bits", type=int, default=None)
     parser.add_argument("--logging_dir", type=str, default="logs")
     parser.add_argument("--pretrained_model_path",
                         type=str,
-                        default=None,
+                        default="trained_models/ddpm-flowers.pth",
                         help="Path to pretrained model")
 
     args = parser.parse_args()

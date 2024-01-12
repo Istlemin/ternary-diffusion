@@ -150,10 +150,10 @@ class QuantizedConv2d(nn.Module):
         quant_weight = self.weight_quanter(self.weight, (1,2,3))
         return nn.functional.conv2d(input, quant_weight, self.bias,stride=self.stride, padding=self.padding, dilation=self.dilation)
     
-def quantize_residual_block(block,quant_config):
+def quantize_residual_block(block,quant_config, args):
     block.conv1 = QuantizedConv2d(block.conv1,quant_config)
     block.conv2 = QuantizedConv2d(block.conv2,quant_config)
-    if isinstance(block.residual_conv, nn.Conv2d):
+    if isinstance(block.residual_conv, nn.Conv2d) and args.qres:
         block.residual_conv = QuantizedConv2d(block.residual_conv,quant_config)
     
 
@@ -161,44 +161,50 @@ def quantize_attention(attention,quant_config):
     attention.to_qkv = QuantizedConv2d(attention.to_qkv,quant_config)
     attention.to_out = QuantizedConv2d(attention.to_out,quant_config)
 
-def quantize_unet(model, quant_config=None):
+def quantize_unet(model, args):
     model = copy.deepcopy(model)
-    if quant_config is None:
-        quant_config = {
-            "weight_quanter": TwnQuantizer(clip_val=2.5),
-            "act_quanter": NoopQuantizer(),
-        }
+    
+    act_quanter = NoopQuantizer()
+    if args.act_quant_bits is not None:
+        act_quanter = MinMaxQuantizer(bits=8)
+    
+    quant_config = {
+        "weight_quanter": TwnQuantizer(clip_val=2.5),
+        "act_quanter": act_quanter,
+    }
     
     model.time_embedding[0] = model.time_embedding[0]
     model.time_embedding[2] = model.time_embedding[2]
     
-    # model.init_conv = QuantizedConv2d(model.init_conv,quant_config)
+    if args.qinit:
+        model.init_conv = QuantizedConv2d(model.init_conv,quant_config)
     
     for down_block in model.down_blocks:
-        quantize_residual_block(down_block[0],quant_config)
-        quantize_residual_block(down_block[1],quant_config)
+        quantize_residual_block(down_block[0],quant_config,args)
+        quantize_residual_block(down_block[1],quant_config,args)
         if isinstance(down_block[2],nn.Identity):
             down_block[3][1] = QuantizedConv2d(down_block[3][1],quant_config)
         else:
             quantize_attention(down_block[2].fn.fn,quant_config)
             down_block[3] = QuantizedConv2d(down_block[3],quant_config)
         
-    quantize_residual_block(model.mid_block1,quant_config)
+    quantize_residual_block(model.mid_block1,quant_config,args)
     quantize_attention(model.mid_attn.fn.fn,quant_config)
-    quantize_residual_block(model.mid_block2,quant_config)
+    quantize_residual_block(model.mid_block2,quant_config,args)
     
     for up_block in model.up_blocks:
-        quantize_residual_block(up_block[0],quant_config)
-        quantize_residual_block(up_block[1],quant_config)
+        quantize_residual_block(up_block[0],quant_config,args)
+        quantize_residual_block(up_block[1],quant_config,args)
         if isinstance(up_block[2],nn.Identity):
             up_block[3][1] = QuantizedConv2d(up_block[3][1],quant_config)
         else:
             quantize_attention(up_block[2].fn.fn,quant_config)
             up_block[3] = QuantizedConv2d(up_block[3],quant_config)
             
-    quantize_residual_block(model.out_block,quant_config)
+    quantize_residual_block(model.out_block,quant_config,args)
     
-    # model.conv_out = QuantizedConv2d(model.conv_out,quant_config)
+    if args.qinit:
+        model.conv_out = QuantizedConv2d(model.conv_out,quant_config)
     
     quantized_param_names = [name+".weight" for name,module in list(model.named_modules()) if isinstance(module,QuantizedConv2d) or isinstance(module, QuantizedLinear)]
     return model, quantized_param_names
