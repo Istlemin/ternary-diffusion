@@ -236,6 +236,8 @@ def main(args):
                 #         print(f"{F.mse_loss(teacher_param,model_state_dict[parameter_name])*1000:.5f}",parameter_name,math.prod(model_state_dict[parameter_name].shape),model_state_dict[parameter_name].shape)
                 for name,errs in avg_act_err.items():
                     print(name,f"{numpy.mean(errs):.3f}")
+                    
+                torch.cuda.empty_cache()
             global_step += 1
             
         progress_bar.close()
