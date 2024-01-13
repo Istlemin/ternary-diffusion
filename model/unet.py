@@ -110,14 +110,14 @@ class ResidualBlock(nn.Module):
         
         x = self.conv1(x)
         x = self.norm1(x)
-        x = self.nonlinearity(x); acts.append(x)
+        x = self.nonlinearity(x); acts.append((x,"res"))
 
         temb = self.time_emb_proj(self.nonlinearity(temb))
         x += temb[:, :, None, None]
 
         x = self.conv2(x)
         x = self.norm2(x)
-        x = self.nonlinearity(x); acts.append(x)
+        x = self.nonlinearity(x); acts.append((x,"res"))
 
         return x + residual, acts #[torch.stack(acts), temb]
 
@@ -204,7 +204,7 @@ class UNet(nn.Module):
         #acts.append(t_emb)
         
         x = self.init_conv(sample)
-        acts.append(x)
+        acts.append((x,"all"))
         r = x.clone()
         
 
@@ -212,50 +212,48 @@ class UNet(nn.Module):
         for block1, block2, attn, downsample in self.down_blocks:
             x, new_acts = block1(x, t_emb)
             acts += new_acts
-            acts.append(x)
+            acts.append((x,"skip"))
             skips.append(x)
 
             x, new_acts = block2(x, t_emb)
             acts += new_acts
-            acts.append(x)
+            acts.append((x,"all"))
             x = attn(x)
-            acts.append(x)
+            acts.append((x,"skip"))
             skips.append(x)
 
             x = downsample(x)
-            acts.append(x)
+            acts.append((x,"all"))
 
         x, new_acts = self.mid_block1(x, t_emb)
         acts += new_acts
-        acts.append(x)
+        acts.append((x,"all"))
         x = self.mid_attn(x)
-        acts.append(x)
+        acts.append((x,"all"))
         x, new_acts = self.mid_block2(x, t_emb)
         acts += new_acts
-        acts.append(x)
-
-        acts = []
+        acts.append((x,"all"))
         
         for block1, block2, attn, upsample in self.up_blocks:
             x = torch.cat((x, skips.pop()), dim=1)
             # acts.append(x)
             x, new_acts = block1(x, t_emb)
-            # acts += new_acts
-            # acts.append(x)
+            acts += new_acts
+            acts.append((x,"all"))
 
             x = torch.cat((x, skips.pop()), dim=1)
             x, new_acts = block2(x, t_emb)
-            # acts += new_acts
-            # acts.append(x)
+            acts += new_acts
+            acts.append((x,"all"))
             x = attn(x)
-            acts.append(x)
+            acts.append((x,"up"))
 
             x = upsample(x)
-            acts.append(x)
+            acts.append((x,"all"))
 
         x, new_acts = self.out_block(torch.cat((x, r), dim=1), t_emb)
-        # acts += new_acts
-        # acts.append(x)
+        acts += new_acts
+        acts.append((x,"all"))
         out = self.conv_out(x)
-        # acts.append(out)
+        acts.append((x,"up"))
         return {"sample": out,"acts":acts}

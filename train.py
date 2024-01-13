@@ -159,6 +159,13 @@ def main(args):
                 avg_err.append(F.l1_loss(noise_pred, pred_teacher["sample"]).detach().cpu().item())
                 loss = 0
                 
+                if args.kd_layers == "skip":
+                    pred["acts"] = [x for x,name in pred["acts"] if "skip" in name]
+                    pred_teacher["acts"] = [x for x,name in pred_teacher["acts"] if "skip" in name]
+                if args.kd_layers == "up":
+                    pred["acts"] = [x for x,name in pred["acts"] if "up" in name]
+                    pred_teacher["acts"] = [x for x,name in pred_teacher["acts"] if "up" in name]
+                
                 for i,(a,b) in enumerate(zip(pred["acts"],pred_teacher["acts"])):
                     #print(f"{((a-b)**2).sum()/(b**2).sum()*100:.3f}",a.shape)
                     avg_act_err[f"{i}-{a.shape[1:]}"].append((((a-b)**2).sum()/(b**2).sum()*100).item())
@@ -169,7 +176,10 @@ def main(args):
                     if args.use_dist_transform:
                         a = distillation_transforms[str(features)](a)
                     
-                    mul = args.hidden_dist
+                    if args.hidden_dist==-1:
+                        mul = 1.0/len(pred["acts"])
+                    else:
+                        mul = args.hidden_dist
                     loss += F.l1_loss(a, b)*mul
                 loss += F.l1_loss(noise_pred, pred_teacher["sample"])*1
             else:
@@ -303,6 +313,7 @@ if __name__ == "__main__":
     parser.add_argument("--hidden_dist", type=float, default=0.0)
     parser.add_argument("--use_dist_transform",action='store_true')
     parser.add_argument("--act_quant_bits", type=int, default=None)
+    parser.add_argument("--kd_layers", type=str, default="")
     parser.add_argument("--logging_dir", type=str, default="logs")
     parser.add_argument("--pretrained_model_path",
                         type=str,
