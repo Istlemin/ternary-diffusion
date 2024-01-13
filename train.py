@@ -162,10 +162,12 @@ def main(args):
                 if args.kd_layers == "skip":
                     pred["acts"] = [x for x,name in pred["acts"] if "skip" in name]
                     pred_teacher["acts"] = [x for x,name in pred_teacher["acts"] if "skip" in name]
-                if args.kd_layers == "up":
+                elif args.kd_layers == "up":
                     pred["acts"] = [x for x,name in pred["acts"] if "up" in name]
                     pred_teacher["acts"] = [x for x,name in pred_teacher["acts"] if "up" in name]
-                
+                else:
+                    pred["acts"] = [x for x,name in pred["acts"]]
+                    pred_teacher["acts"] = [x for x,name in pred_teacher["acts"]]
                 for i,(a,b) in enumerate(zip(pred["acts"],pred_teacher["acts"])):
                     #print(f"{((a-b)**2).sum()/(b**2).sum()*100:.3f}",a.shape)
                     avg_act_err[f"{i}-{a.shape[1:]}"].append((((a-b)**2).sum()/(b**2).sum()*100).item())
@@ -175,6 +177,10 @@ def main(args):
                     
                     if args.use_dist_transform:
                         a = distillation_transforms[str(features)](a)
+                    if args.kd_attention:
+                        a = (a**2).sum(dim=1)
+                        b = (b**2).sum(dim=1)
+                    
                     
                     if args.hidden_dist==-1:
                         mul = 1.0/len(pred["acts"])
@@ -310,6 +316,7 @@ if __name__ == "__main__":
     parser.add_argument("--quantize",action='store_true')
     parser.add_argument("--qinit",action='store_true')
     parser.add_argument("--qres",action='store_true')
+    parser.add_argument("--kd_attention",action='store_true')
     parser.add_argument("--hidden_dist", type=float, default=0.0)
     parser.add_argument("--use_dist_transform",action='store_true')
     parser.add_argument("--act_quant_bits", type=int, default=None)
