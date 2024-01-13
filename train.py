@@ -66,16 +66,17 @@ def main(args):
         "128": torch.nn.Linear(128,128),
     })
     
-    optimizer = torch.optim.SGD(
-        [
-            {'params':[param for name,param in model.named_parameters() if name in quantized_param_names], "lr":args.quant_lr},
-            {'params':[param for name,param in model.named_parameters() if name not in quantized_param_names], "lr":args.learning_rate},
-            {'params':distillation_transforms.parameters(), "lr":args.learning_rate},
-        ],
+    optimizer = torch.optim.Adam(
+        # [
+        #     {'params':[param for name,param in model.named_parameters() if name in quantized_param_names], "lr":args.quant_lr},
+        #     {'params':[param for name,param in model.named_parameters() if name not in quantized_param_names], "lr":args.learning_rate},
+        #     {'params':distillation_transforms.parameters(), "lr":args.learning_rate},
+        # ],
+        model.parameters(),
         lr=args.learning_rate,
-        # betas=(args.adam_beta1, args.adam_beta2),
-        # weight_decay=args.adam_weight_decay,
-        # eps=args.adam_epsilon,
+        betas=(args.adam_beta1, args.adam_beta2),
+        weight_decay=args.adam_weight_decay,
+        eps=args.adam_epsilon,
     )
 
     augmentations = Compose([
