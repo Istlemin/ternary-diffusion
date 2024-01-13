@@ -121,7 +121,7 @@ def main(args):
     model = model.to(device)
     teacher = teacher.to(device)
     distillation_transforms = distillation_transforms.to(device)
-    #summary(model, [(1, 3, args.resolution, args.resolution), (1, )], verbose=1)
+    summary(teacher, [(1, 3, args.resolution, args.resolution), (1, )], verbose=1)
 
     loss_fn = F.l1_loss if args.use_l1_loss else F.mse_loss
     #scaler = torch.cuda.amp.GradScaler()
@@ -159,19 +159,18 @@ def main(args):
                 avg_err.append(F.l1_loss(noise_pred, pred_teacher["sample"]).detach().cpu().item())
                 loss = 0
                 
-                if args.hidden_dist is not None:
-                    for i,(a,b) in enumerate(zip(pred["acts"],pred_teacher["acts"])):
-                        #print(f"{((a-b)**2).sum()/(b**2).sum()*100:.3f}",a.shape)
-                        avg_act_err[f"{i}-{a.shape[1:]}"].append((((a-b)**2).sum()/(b**2).sum()*100).item())
-                        features = a.shape[1]
-                        a = a.transpose(1,3).reshape((-1,features))
-                        b = b.transpose(1,3).reshape((-1,features))
-                        
-                        if args.use_dist_transform:
-                            a = distillation_transforms[str(features)](a)
-                        
-                        mul = 0.0
-                        loss += F.l1_loss(a, b)*mul
+                for i,(a,b) in enumerate(zip(pred["acts"],pred_teacher["acts"])):
+                    #print(f"{((a-b)**2).sum()/(b**2).sum()*100:.3f}",a.shape)
+                    avg_act_err[f"{i}-{a.shape[1:]}"].append((((a-b)**2).sum()/(b**2).sum()*100).item())
+                    features = a.shape[1]
+                    a = a.transpose(1,3).reshape((-1,features))
+                    b = b.transpose(1,3).reshape((-1,features))
+                    
+                    if args.use_dist_transform:
+                        a = distillation_transforms[str(features)](a)
+                    
+                    mul = args.hidden_dist
+                    loss += F.l1_loss(a, b)*mul
                 loss += F.l1_loss(noise_pred, pred_teacher["sample"])*1
             else:
                 loss = F.l1_loss(noise_pred, noise)
@@ -301,7 +300,7 @@ if __name__ == "__main__":
     parser.add_argument("--quantize",action='store_true')
     parser.add_argument("--qinit",action='store_true')
     parser.add_argument("--qres",action='store_true')
-    parser.add_argument("--hidden_dist",action='store_true')
+    parser.add_argument("--hidden_dist", type=float, default=0.0)
     parser.add_argument("--use_dist_transform",action='store_true')
     parser.add_argument("--act_quant_bits", type=int, default=None)
     parser.add_argument("--logging_dir", type=str, default="logs")
