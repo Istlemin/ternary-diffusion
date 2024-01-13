@@ -67,12 +67,12 @@ def main(args):
     })
     
     optimizer = torch.optim.Adam(
-        # [
-        #     {'params':[param for name,param in model.named_parameters() if name in quantized_param_names], "lr":args.quant_lr},
-        #     {'params':[param for name,param in model.named_parameters() if name not in quantized_param_names], "lr":args.learning_rate},
-        #     {'params':distillation_transforms.parameters(), "lr":args.learning_rate},
-        # ],
-        model.parameters(),
+        [
+            {'params':[param for name,param in model.named_parameters() if name in quantized_param_names], "lr":args.quant_lr},
+            {'params':[param for name,param in model.named_parameters() if name not in quantized_param_names], "lr":args.learning_rate},
+            {'params':distillation_transforms.parameters(), "lr":args.learning_rate},
+        ],
+        #model.parameters(),
         lr=args.learning_rate,
         betas=(args.adam_beta1, args.adam_beta2),
         weight_decay=args.adam_weight_decay,
@@ -116,6 +116,13 @@ def main(args):
         num_training_steps=(len(train_dataloader) * args.num_epochs) //
         args.gradient_accumulation_steps,
     )
+    
+    
+    def lr_lambda(current_step: int):
+        return max(0.998**current_step,1e-4)
+
+    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, -1)
+
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
