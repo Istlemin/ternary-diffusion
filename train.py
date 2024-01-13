@@ -195,7 +195,7 @@ def main(args):
             }
 
             progress_bar.set_postfix(**logs)
-            if global_step % 100 == 0:
+            if global_step % 500 == 0:
                 with torch.no_grad():
                     # has to be instantiated every time, because of reproducibility
                     generator = torch.manual_seed(0)
