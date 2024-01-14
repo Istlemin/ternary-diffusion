@@ -109,9 +109,11 @@ def main(args):
     train_dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=args.train_batch_size, shuffle=True)
     
+    num_training_steps = (len(train_dataloader) * args.num_epochs) // args.gradient_accumulation_steps
+    
     if args.lr_scheduler == "exponential":
         def lr_lambda(current_step: int):
-            return 0.25**((current_step)//200)
+            return 0.25**((current_step)//(num_training_steps//10))
 
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, -1)
     else:
@@ -119,8 +121,7 @@ def main(args):
             args.lr_scheduler,
             optimizer=optimizer,
             num_warmup_steps=args.lr_warmup_steps,
-            num_training_steps=(len(train_dataloader) * args.num_epochs) //
-            args.gradient_accumulation_steps - 500,
+            num_training_steps=num_training_steps,
             num_cycles=3
         )
 
