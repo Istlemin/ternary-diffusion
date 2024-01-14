@@ -121,6 +121,7 @@ def main(args):
             num_warmup_steps=args.lr_warmup_steps,
             num_training_steps=(len(train_dataloader) * args.num_epochs) //
             args.gradient_accumulation_steps,
+            num_cycles=3
         )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
