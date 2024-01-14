@@ -99,7 +99,7 @@ if __name__ == "__main__":
         description="Simple script for image generation.")
     parser.add_argument("--resolution", type=int, default=64)
     parser.add_argument("--eval_batch_size", type=int, default=4)
-    parser.add_argument("--dataset_name", type=str, default=None)
+    parser.add_argument("--dataset_name", type=str, default="huggan/flowers-102-categories")
     parser.add_argument("--dataset_config_name", type=str, default=None)
     parser.add_argument("--dataset_size", type=int, default=None)
     parser.add_argument("--cache_dir", type=str, default=None)
