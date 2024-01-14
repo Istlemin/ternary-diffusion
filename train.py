@@ -108,21 +108,20 @@ def main(args):
 
     train_dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=args.train_batch_size, shuffle=True)
-
-    lr_scheduler = get_scheduler(
-        args.lr_scheduler,
-        optimizer=optimizer,
-        num_warmup_steps=args.lr_warmup_steps,
-        num_training_steps=(len(train_dataloader) * args.num_epochs) //
-        args.gradient_accumulation_steps,
-    )
     
-    
-    def lr_lambda(current_step: int):
-        return max(0.998**current_step,1e-4)
+    if args.lr_scheduler == "exponential":
+        def lr_lambda(current_step: int):
+            return 0.5**(current_step//200)
 
-    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, -1)
-
+        lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, -1)
+    else:
+        lr_scheduler = get_scheduler(
+            args.lr_scheduler,
+            optimizer=optimizer,
+            num_warmup_steps=args.lr_warmup_steps,
+            num_training_steps=(len(train_dataloader) * args.num_epochs) //
+            args.gradient_accumulation_steps,
+        )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
