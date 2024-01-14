@@ -206,7 +206,7 @@ def main(args):
                 clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             
-            if step<1450:
+            if step<1540:
                 lr_scheduler.step()
             optimizer.zero_grad()
 
