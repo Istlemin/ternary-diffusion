@@ -202,8 +202,8 @@ def main(args):
                     if args.use_dist_transform:
                         a = distillation_transforms[str(features)](a)
                     if args.kd_attention:
-                        a = (a**2).sum(dim=1)
-                        b = (b**2).sum(dim=1)
+                        a = ((a**2).mean(dim=1))**0.5
+                        b = ((b**2).mean(dim=1))**0.5
                     
                     
                     if args.hidden_dist==-1:
