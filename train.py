@@ -120,7 +120,7 @@ def main(args):
             optimizer=optimizer,
             num_warmup_steps=args.lr_warmup_steps,
             num_training_steps=(len(train_dataloader) * args.num_epochs) //
-            args.gradient_accumulation_steps,
+            args.gradient_accumulation_steps - 500,
             num_cycles=3
         )
 
@@ -205,7 +205,9 @@ def main(args):
             if args.use_clip_grad:
                 clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
-            lr_scheduler.step()
+            
+            if step<1450:
+                lr_scheduler.step()
             optimizer.zero_grad()
 
             progress_bar.update(1)
