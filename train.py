@@ -111,10 +111,7 @@ def main(args):
     
     if args.lr_scheduler == "exponential":
         def lr_lambda(current_step: int):
-            if current_step<1000:
-                return 1.0
-            else:
-                return 0.25**((current_step-1000)//100)
+            return 0.25**((current_step)//200)
 
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, -1)
     else:
