@@ -242,7 +242,7 @@ def main(args):
                         'model_state': model.state_dict(),
                         'optimizer_state': optimizer.state_dict(),
                     }, args.output_dir + f"_{global_step}")
-                
+                torch.save(model,args.output_dir + f"_{global_step}_model")
             if global_step % 500 == 0:
                 with torch.no_grad():
                     # has to be instantiated every time, because of reproducibility
