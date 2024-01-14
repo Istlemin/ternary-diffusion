@@ -15,6 +15,7 @@ from datasets import load_dataset
 from scheduler import DDIMScheduler
 from model import UNet
 from tqdm import tqdm
+from quantization import calc_model_size, quantize_unet, QuantizedConv2d, QuantizedLinear
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -89,6 +90,12 @@ def main(args):
     pretrained = torch.load(args.pretrained_model_path)["model_state"]
     model.load_state_dict(pretrained, strict=False)
 
+    model.load_state_dict(pretrained, strict=False)
+
+    model, quantized_param_names = quantize_unet(model,args)
+    
+    model.load_state_dict(torch.load(args.pretrained_model_path)["model_state"])
+
     model = model.to(device)
 
     eval(model, args)
@@ -103,6 +110,15 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_config_name", type=str, default=None)
     parser.add_argument("--dataset_size", type=int, default=None)
     parser.add_argument("--cache_dir", type=str, default=None)
+    parser.add_argument("--quantize",action='store_true')
+    parser.add_argument("--qinit",action='store_true')
+    parser.add_argument("--qres",action='store_true')
+    parser.add_argument("--quant_emb",action='store_true')
+    parser.add_argument("--kd_attention",action='store_true')
+    parser.add_argument("--hidden_dist", type=float, default=0.0)
+    parser.add_argument("--use_dist_transform",action='store_true')
+    parser.add_argument("--act_quant_bits", type=int, default=None)
+    parser.add_argument("--kd_layers", type=str, default="")
     parser.add_argument("--pretrained_model_path",
                         type=str,
                         default=None,
