@@ -155,6 +155,10 @@ def quantize_residual_block(block,quant_config, args):
     block.conv2 = QuantizedConv2d(block.conv2,quant_config)
     if isinstance(block.residual_conv, nn.Conv2d) and args.qres:
         block.residual_conv = QuantizedConv2d(block.residual_conv,quant_config)
+        
+    if args.quant_emb:
+        block.time_emb_proj[1] = QuantizedLinear(block.time_emb_proj[1], quant_config)
+    
     
 
 def quantize_attention(attention,quant_config):
@@ -173,8 +177,9 @@ def quantize_unet(model, args):
         "act_quanter": act_quanter,
     }
     
-    model.time_embedding[0] = model.time_embedding[0]
-    model.time_embedding[2] = model.time_embedding[2]
+    if args.quant_emb:
+        model.time_embedding[0] = QuantizedLinear(model.time_embedding[0], quant_config)
+        model.time_embedding[2] = QuantizedLinear(model.time_embedding[2], quant_config)
     
     if args.qinit:
         model.init_conv = QuantizedConv2d(model.init_conv,quant_config)

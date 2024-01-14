@@ -341,6 +341,7 @@ if __name__ == "__main__":
     parser.add_argument("--quantize",action='store_true')
     parser.add_argument("--qinit",action='store_true')
     parser.add_argument("--qres",action='store_true')
+    parser.add_argument("--quant_emb",action='store_true')
     parser.add_argument("--kd_attention",action='store_true')
     parser.add_argument("--hidden_dist", type=float, default=0.0)
     parser.add_argument("--use_dist_transform",action='store_true')
