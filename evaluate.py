@@ -64,7 +64,7 @@ def eval(model,args):
                 model,
                 num_inference_steps=n_inference_timesteps,
                 generator=generator,
-                eta=0.5,
+                eta=1.0,
                 use_clipped_model_output=True,
                 batch_size=args.eval_batch_size,
                 output_type="numpy")
