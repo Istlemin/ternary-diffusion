@@ -112,8 +112,13 @@ def main(args):
     num_training_steps = (len(train_dataloader) * args.num_epochs) // args.gradient_accumulation_steps
     
     if args.lr_scheduler == "exponential":
+        start_at = num_training_steps//2
+        
         def lr_lambda(current_step: int):
-            return 0.25**((current_step)//(num_training_steps//10))
+            if current_step < start_at:
+                return 1.0
+
+            return (1e-7/args.quant_lr)**((current_step-start_at)/(num_training_steps-start_at))
 
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, -1)
     else:
@@ -122,7 +127,7 @@ def main(args):
             optimizer=optimizer,
             num_warmup_steps=args.lr_warmup_steps,
             num_training_steps=num_training_steps,
-            num_cycles=3
+            num_cycles=1
         )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
