@@ -111,7 +111,10 @@ def main(args):
     
     if args.lr_scheduler == "exponential":
         def lr_lambda(current_step: int):
-            return 0.35**(current_step//200)
+            if current_step<1000:
+                return 1.0
+            else:
+                return 0.25**((current_step-1000)//100)
 
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, -1)
     else:
@@ -206,8 +209,7 @@ def main(args):
                 clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             
-            if step<1540:
-                lr_scheduler.step()
+            lr_scheduler.step()
             optimizer.zero_grad()
 
             progress_bar.update(1)
